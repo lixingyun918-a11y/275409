@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <!-- 跨设备标准化：标准视口设置，防缩放，适配刘海屏 -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    
+    <!-- 状态 A（验证码界面）：完全使用原生系统 Title Bar -->
+    <title>国家职业资格证书管理系统</title>
+    
+    <style>
+        /* ================= 核心重置 ================= */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-user-select: none;
+            user-select: none;
+            -webkit-touch-callout: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100vh; /* 强制全端高度绝对锁定 */
+            overflow: hidden; 
+            background-color: #ffffff; 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* 强制隐藏任何可能挤压比例的滚动条 */
+        ::-webkit-scrollbar { display: none !important; width: 0 !important; height: 0 !important; }
+
+        .page {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            display: none;
+            z-index: 10;
+            background-color: inherit;
+        }
+
+        .page.active { display: block; }
+
+        /* ================= 验证码页内容区 ================= */
+        .verify-wrap {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 0;
+            background-color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            /* 因为切除了假标题栏，使用 vh 动态下沉内容，使其在视口中居中偏上 */
+            padding-top: 15vh; 
+        }
+
+        .h1-title {
+            font-size: 22px;
+            color: #333;
+            margin-bottom: 40px;
+        }
+
+        .captcha-area {
+            width: 248px;
+            height: 40px;
+            display: flex;
+            justify-content: space-between;
+            gap: 4px;
+            margin-bottom: 40px;
+        }
+
+        .input-box {
+            width: 150px;
+            height: 100%;
+            border: 2px solid #d4af37 !important;
+            border-radius: 6px;
+            padding: 0 10px;
+            font-size: 16px; 
+            outline: none !important;
+            box-shadow: none !important;
+            caret-color: #d4af37;
+            background-color: #ffffff;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        .captcha-img-box {
+            width: 94px;
+            height: 100%;
+            border: 1px solid #0000cd;
+            background: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: "Comic Sans MS", cursive;
+            color: #0000cd;
+        }
+        .hand-char { display: inline-block; font-weight: bold; }
+
+        .btn-confirm {
+            width: 248px;
+            height: 40px;
+            background-color: #557bf8;
+            border: none;
+            border-radius: 20px;
+            color: #fff;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .btn-confirm:active { background-color: #4a6ee0; }
+
+        /* ================= 证书展示区 (物理锁定终极方案) ================= */
+        .cert-wrap {
+            position: absolute;
+            top: 0; bottom: 0; left: 0; right: 0;
+            background-color: #e0edf8; /* 纯正蓝色背景 */
+        }
+
+        /* 隐形约束力相框：绝对锁死物理尺寸，本身完全透明 */
+        .img-container {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%);
+            
+            /* 【硬性数学要求 1】：宽度严格保持 1:1（即占据屏幕的 50%） */
+            width: 50%;
+            
+            /* 【硬性数学要求 2】：长度严格保持 0.4:1（即占据蓝色背景高度的 40%） */
+            height: 40%; 
+            
+            /* 【硬性数学要求 3】：顶端极限缝隙锁死为 3px */
+            top: 3px; 
+            
+            /* 黑科技：相框彻底透明，绝不施加任何白底，消灭大面积空白！ */
+            background-color: transparent;
+            border: none;
+            box-shadow: none;
+            
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            pointer-events: none; 
+        }
+
+        /* 导入的高清照片（白底和边框死死贴住图片本身，绝不外泄） */
+        #cert-img {
+            /* 图片最大只能放大到相框的边界，但会自动等比例缩小 */
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+            
+            /* 白框和边距绑定在图片上！图片有多大，白框就只有多大，绝不多出一丝一毫白边 */
+            background-color: #ffffff;
+            border: 1px solid #dcdcdc;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            
+            /* 【硬性要求 4】：高清渲染算法，启用硬件加速，绝对不降低图片清晰度和质量 */
+            image-rendering: -webkit-optimize-contrast;
+            transform: translateZ(0); 
+            
+            display: block;
+            opacity: 0;
+        }
+
+        /* 全局轻提示 */
+        #msg-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.85);
+            color: #fff;
+            padding: 14px 24px;
+            border-radius: 8px;
+            display: none;
+            z-index: 10001;
+            font-size: 16px;
+            white-space: nowrap;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="msg-box"></div>
+
+    <!-- 页面 1: 验证页 (已彻底切除所有假冒导航栏) -->
+    <div id="page-verify" class="page active">
+        <div class="verify-wrap">
+            <div class="h1-title">请输入验证码</div>
+            <div class="captcha-area">
+                <input type="text" id="captcha-input" class="input-box" placeholder="验证码" maxlength="4" autocomplete="off" inputmode="text">
+                <div class="captcha-img-box">
+                    <span class="hand-char" style="transform: rotate(-15deg) translateY(2px); font-size: 20px;">e</span>
+                    <span class="hand-char" style="transform: rotate(10deg) translateY(-1px); font-size: 17px; font-weight: normal;">e</span>
+                    <span class="hand-char" style="transform: rotate(-8deg) translateY(3px); font-size: 22px;">q</span>
+                    <span class="hand-char" style="transform: rotate(18deg) translateY(-2px); font-size: 19px; font-weight: normal;">c</span>
+                </div>
+            </div>
+            <button id="btn-submit" class="btn-confirm">确认</button>
+        </div>
+    </div>
+
+    <!-- 页面 2: 证书页 (只保留纯粹的蓝底和内容) -->
+    <div id="page-result" class="page">
+        <div class="cert-wrap">
+            <!-- 绝对死锁边界，完全透明的相框约束器 -->
+            <div class="img-container">
+                <!-- 自适应高清图片，白底和边框紧贴图片边缘 -->
+                <img id="cert-img" src="" alt="">
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 极速静默预加载：消灭图片加载延迟
+        const imagesToTry = [
+            'certificate.jpg.jpg', // 优先匹配您的双后缀文件
+            'certificate.jpg', 
+            'cert_image.jpg', 
+            'certificate.png'
+        ];
+        imagesToTry.forEach(function(src) {
+            const preloader = new Image();
+            preloader.src = src;
+        });
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const btnSubmit = document.getElementById('btn-submit');
+            const input = document.getElementById('captcha-input');
+            const pageVerify = document.getElementById('page-verify');
+            const pageResult = document.getElementById('page-result');
+            const certImg = document.getElementById('cert-img');
+            const msgBox = document.getElementById('msg-box');
+            
+            let timer = null;
+
+            function showMsg(txt) {
+                msgBox.innerText = txt;
+                msgBox.style.display = 'block';
+                if(timer) clearTimeout(timer);
+                timer = setTimeout(() => { msgBox.style.display = 'none'; }, 2000);
+            }
+
+            function processVerification() {
+                const val = input.value.trim().toLowerCase();
+                if (val === 'eeqc') {
+                    // ================= 状态切换核心逻辑 =================
+                    
+                    // 状态 B（证书信息界面）：利用原生 Title 系统切换标题
+                    document.title = "证书信息";
+                    
+                    // 瞬间切换页面背景和显示状态
+                    document.body.style.backgroundColor = '#e0edf8';
+                    pageVerify.classList.remove('active');
+                    pageResult.classList.add('active');
+                    
+                    // 渲染图片
+                    certImg.style.opacity = '0';
+                    let currentIdx = 0;
+
+                    certImg.onload = function() { 
+                        this.style.opacity = '1'; 
+                    };
+
+                    certImg.onerror = function() {
+                        currentIdx++;
+                        if (currentIdx < imagesToTry.length) {
+                            this.src = imagesToTry[currentIdx];
+                        } else {
+                            this.onerror = null;
+                        }
+                    };
+
+                    certImg.src = imagesToTry[0];
+                    input.blur();
+                } else {
+                    showMsg('验证码输入错误');
+                }
+            }
+
+            btnSubmit.onclick = processVerification;
+            
+            input.onkeydown = (e) => { 
+                if (e.key === 'Enter' || e.keyCode === 13) {
+                    e.preventDefault(); 
+                    processVerification();
+                }
+            };
+
+            // 彻底解决 iOS 键盘回落缝隙
+            input.onblur = () => {
+                setTimeout(() => { 
+                    window.scrollTo(0, 0); 
+                }, 100);
+            };
+        });
+    </script>
+</body>
+</html>
